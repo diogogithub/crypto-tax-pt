@@ -1,0 +1,557 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Criptomoedas no IRS de Portugal · diogo.site</title>
+  <meta name="description" content="Aplicação local-first para organizar operações de criptoativos e preparar informação útil para IRS em Portugal." />
+  <meta name="theme-color" content="#f3f5f9" />
+  <meta name="color-scheme" content="light" />
+  <link rel="canonical" href="https://diogo.site/apps/crypto_irs/" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>₿</text></svg>" />
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="Criptomoedas no IRS de Portugal" />
+  <meta property="og:description" content="Organiza operações de criptoativos com lotes FIFO, preços históricos e exportações — tudo localmente no teu browser." />
+  <meta property="og:url" content="https://diogo.site/apps/crypto_irs/" />
+  <link rel="stylesheet" href="./styles.css" />
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+</head>
+<body>
+  <div class="shell">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-mark">₿</div>
+        <div>
+          <h1>Cripto IRS PT</h1>
+          <p>Organização e preparação</p>
+        </div>
+      </div>
+
+      <nav class="side-nav" aria-label="Navegação principal">
+        <button class="nav-link active" data-tab="overview">Visão geral</button>
+        <button class="nav-link" data-tab="import">Importação</button>
+        <button class="nav-link" data-tab="history">Histórico</button>
+        <button class="nav-link" data-tab="lots">Lotes e FIFO</button>
+        <button class="nav-link" data-tab="reviews">Revisão necessária</button>
+        <button class="nav-link" data-tab="prices">Preços históricos</button>
+        <button class="nav-link" data-tab="tax">Preencher o IRS</button>
+        <button class="nav-link" data-tab="exports">Exportações</button>
+        <button class="nav-link" data-tab="guide">Guia fiscal</button>
+        <button class="nav-link" data-tab="about">Sobre a app</button>
+      </nav>
+
+      <div class="sidebar-card">
+        <h2>Privacidade</h2>
+        <p>Os ficheiros são processados localmente no seu browser, nenhuma informação é processada no servidor.</p>
+      </div>
+
+      <div class="sidebar-card">
+        <h2>Nota importante</h2>
+        <p>A aplicação ajuda a organizar e preparar informação fiscal, mas não substitui validação profissional nem instruções da AT.</p>
+      </div>
+
+      <p style="margin-top:18px;padding-top:8px;font-size:0.82rem;color:rgba(255,255,255,0.55);">
+        <a href="https://diogo.site/apps/" style="color:rgba(255,255,255,0.78);text-decoration:underline;">&larr; Mais apps em diogo.site</a>
+      </p>
+    </aside>
+
+    <main class="content">
+      <header class="page-header">
+        <div>
+          <p class="eyebrow">Portugal · criptoativos · IRS</p>
+          <h2>Análise fiscal de criptoactivos</h2>
+          <p class="lede">Importe ficheiros, reconstrua o histórico, reveja pontos ambíguos, compreenda lotes FIFO e exporte vistas úteis para trabalho fiscal.</p>
+        </div>
+        <div class="header-actions">
+          <button id="saveSessionBtn" class="btn btn-secondary">Guardar sessão</button>
+          <label class="btn btn-ghost file-inline">
+            Restaurar sessão
+            <input id="restoreSessionInput" type="file" accept=".json" hidden />
+          </label>
+          <button id="resetAppBtn" class="btn btn-danger">Recomeçar do zero</button>
+        </div>
+      </header>
+
+      <section id="overview" class="tab-panel active">
+        <div class="hero card">
+          <div class="hero-copy">
+            <span class="pill pill-accent">Processamento local</span>
+            <span class="pill">Sem instalação</span>
+            <h3>Como começar</h3>
+            <ol class="steps">
+              <li>Carregue os ficheiros CSV ou ZIP suportados da Kraken e/ou Robinhood.</li>
+              <li>Confirme o resumo de processamento e verifique o que foi reconhecido.</li>
+              <li>Resolva pontos pendentes em <strong>Revisão necessária</strong>.</li>
+              <li>Consulte as secções de histórico, lotes, preços e IRS PT.</li>
+              <li>Exporte um pacote de trabalho para retomar mais tarde.</li>
+            </ol>
+          </div>
+          <div class="hero-side">
+            <div class="metric-grid">
+              <article class="metric-card">
+                <span>Movimentos</span>
+                <strong id="metricTransactions">0</strong>
+              </article>
+              <article class="metric-card">
+                <span>Lotes abertos</span>
+                <strong id="metricLots">0</strong>
+              </article>
+              <article class="metric-card">
+                <span>Revisões</span>
+                <strong id="metricReviews">0</strong>
+              </article>
+              <article class="metric-card">
+                <span>Imposto estimado</span>
+                <strong id="metricTax">€0,00</strong>
+              </article>
+            </div>
+          </div>
+        </div>
+
+        <div class="grid cols-2">
+          <article class="card">
+            <div class="card-head">
+              <h3>Ficheiros suportados</h3>
+            </div>
+            <div class="support-grid">
+              <div>
+                <h4>Kraken</h4>
+                <ul class="clean-list">
+                  <li><strong>Obrigatório:</strong> ledgers CSV ou ZIP</li>
+                  <li><strong>Recomendado:</strong> trades CSV ou ZIP</li>
+                  <li><strong>Opcional:</strong> balances CSV ou ZIP</li>
+                </ul>
+              </div>
+              <div>
+                <h4>Robinhood</h4>
+                <ul class="clean-list">
+                  <li>CSV direto</li>
+                  <li>ZIP com activity CSV</li>
+                </ul>
+              </div>
+            </div>
+            <p class="subtle">Os nomes dos ficheiros são detetados automaticamente. A aplicação mostra se um ficheiro foi usado, ignorado, parcialmente lido ou não reconhecido.</p>
+          </article>
+
+          <article class="card">
+            <div class="card-head">
+              <h3>Políticas ativas</h3>
+            </div>
+            <div class="settings-list">
+              <label class="setting-row">
+                <span>Ano fiscal</span>
+                <input id="taxYear" type="number" min="2023" max="2100" value="2026" />
+              </label>
+              <label class="setting-row">
+                <span>Taxa estimada (%)</span>
+                <input id="taxRate" type="number" min="0" max="100" step="0.1" value="28" />
+              </label>
+              <label class="setting-check">
+                <input id="autoContinuity" type="checkbox" checked />
+                <span>Assumir continuidade entre plataformas quando a correspondência é razoável</span>
+              </label>
+              <label class="setting-check">
+                <input id="ignoreDust" type="checkbox" checked />
+                <span>Ignorar dust e movimentos técnicos quando apropriado</span>
+              </label>
+              <label class="setting-row">
+                <span>Política para swaps cripto→cripto</span>
+                <select id="swapPolicy">
+                  <option value="carry_data">Carry basis + carry data</option>
+                  <option value="reset_data">Carry basis + reset data</option>
+                </select>
+              </label>
+              <label class="setting-check">
+                <input id="coinGeckoAutoFill" type="checkbox" checked />
+                <span>Tentar preencher automaticamente preços em falta via CoinGecko</span>
+              </label>
+              <label class="setting-row">
+                <span>CoinGecko Demo API key (opcional)</span>
+                <input id="coinGeckoApiKey" type="password" autocomplete="off" placeholder="x-cg-demo-api-key" />
+                <small>A chave fica apenas na memória desta página e não é incluída em sessões guardadas ou exportações.</small>
+              </label>
+            </div>
+            <div class="callout">
+              <strong>Explicação simples:</strong> a política de swaps só afeta trocas cripto→cripto. Transferências entre as suas próprias plataformas reconciliadas continuam a transportar custo e data de aquisição.
+            </div>
+          </article>
+        </div>
+
+        <div class="grid cols-2">
+          <article class="card">
+            <div class="card-head"><h3>Resumo de processamento</h3></div>
+            <div id="processingSummary" class="empty-state compact">
+              <p>Ainda não existem dados processados.</p>
+            </div>
+          </article>
+          <article class="card">
+            <div class="card-head"><h3>Auditoria de decisões automáticas</h3></div>
+            <div id="auditTrail" class="empty-state compact">
+              <p>As decisões automáticas vão aparecer aqui com explicação humana.</p>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section id="import" class="tab-panel">
+        <div class="card">
+          <div class="card-head split">
+            <div>
+              <h3>Importação de ficheiros</h3>
+              <p class="subtle">Pode arrastar ficheiros para a área abaixo ou usar seleção múltipla.</p>
+            </div>
+            <div class="toolbar-wrap">
+              <label class="btn btn-secondary file-inline">
+                Selecionar ficheiros
+                <input id="fileInput" type="file" multiple hidden />
+              </label>
+              <button id="processBtn" class="btn btn-primary">Processar ficheiros</button>
+              <button id="clearFilesBtn" class="btn btn-ghost">Limpar lista</button>
+            </div>
+          </div>
+
+          <div id="dropzone" class="dropzone" tabindex="0" role="button" aria-label="Zona de arrastar e largar ficheiros">
+            <div>
+              <h4>Arraste CSV ou ZIP para aqui</h4>
+              <p>Kraken ledgers/trades/balances e Robinhood activity CSV são reconhecidos automaticamente.</p>
+            </div>
+          </div>
+
+          <div class="grid cols-2 stack-mobile">
+            <article>
+              <h4 class="section-title">Lista de ficheiros</h4>
+              <div id="fileQueue" class="empty-state compact">
+                <p>Sem ficheiros selecionados.</p>
+              </div>
+            </article>
+            <article>
+              <h4 class="section-title">Reconhecimento</h4>
+              <div id="recognizedFiles" class="empty-state compact">
+                <p>Depois do processamento, aqui verá o estado de cada ficheiro.</p>
+              </div>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section id="history" class="tab-panel">
+        <div class="card">
+          <div class="card-head split stack-mobile">
+            <div>
+              <h3>Histórico normalizado</h3>
+              <p class="subtle">Pesquise, filtre e ordene movimentos. Expanda linhas para perceber a origem e a decisão tomada.</p>
+            </div>
+            <div class="toolbar-wrap filters">
+              <input id="historySearch" type="search" placeholder="Pesquisar no histórico" />
+              <select id="historyPlatformFilter"></select>
+              <select id="historyAssetFilter"></select>
+              <select id="historyTypeFilter"></select>
+              <select id="historyYearFilter"></select>
+            </div>
+          </div>
+          <div id="historyTable" class="table-host"></div>
+        </div>
+      </section>
+
+      <section id="lots" class="tab-panel">
+        <div class="card">
+          <div class="card-head split stack-mobile">
+            <div>
+              <h3>Lotes e FIFO</h3>
+              <p class="subtle">Veja origem, custo, quantidade remanescente e encadeamento entre lotes.</p>
+            </div>
+            <div class="toolbar-wrap filters">
+              <input id="lotsSearch" type="search" placeholder="Pesquisar lotes" />
+              <select id="lotsPlatformFilter"></select>
+              <select id="lotsAssetFilter"></select>
+              <select id="lotsStatusFilter"></select>
+            </div>
+          </div>
+          <div id="lotsTable" class="table-host"></div>
+        </div>
+      </section>
+
+      <section id="reviews" class="tab-panel">
+        <div class="card">
+          <div class="card-head split stack-mobile">
+            <div>
+              <h3>Revisão necessária</h3>
+              <p class="subtle">Esta é a área crítica para resolver ambiguidades, completar dados em falta e confirmar decisões sensíveis.</p>
+            </div>
+            <div class="toolbar-wrap filters">
+              <input id="reviewSearch" type="search" placeholder="Pesquisar revisões" />
+              <select id="reviewSeverityFilter"></select>
+              <select id="reviewTypeFilter"></select>
+            </div>
+          </div>
+          <div id="reviewBoard" class="review-board"></div>
+        </div>
+      </section>
+
+      
+      <section id="prices" class="tab-panel">
+        <div class="card">
+          <div class="card-head split stack-mobile">
+            <div>
+              <h3>Preços históricos</h3>
+              <p class="subtle">Pode sincronizar preços em falta via CoinGecko, rever datas próximas, editar manualmente e exportar/importar a base de preços para reutilizar em meses futuros.</p>
+            </div>
+            <div class="toolbar-wrap">
+              <button id="syncCoinGeckoBtn" class="btn btn-primary">CoinGecko agora</button>
+              <button id="exportPricesCsvBtn" class="btn btn-secondary">CSV</button>
+              <button id="exportPricesJsonBtn" class="btn btn-secondary">JSON</button>
+              <label class="btn btn-ghost file-inline">
+                Importar preços
+                <input id="importPricesInput" type="file" accept=".json,.csv" hidden />
+              </label>
+              <button id="reprocessBtn" class="btn btn-secondary">Reprocessar</button>
+            </div>
+          </div>
+          <div class="callout">
+            <strong>Fluxo recomendado:</strong> processa os ficheiros, deixa a app tentar CoinGecko nos preços em falta, corrige manualmente o que for preciso e exporta a base de preços para a poderes voltar a importar no futuro.
+          </div>
+        </div>
+
+        <div class="grid">
+          <article class="card">
+            <div class="card-head">
+              <div>
+                <h3>CoinGecko e revisão manual</h3>
+                <p class="subtle">Linhas em falta ou preenchidas automaticamente via CoinGecko. Aqui consegues rever o preço final, o CoinGecko ID e os preços mais próximos disponíveis antes/depois da data.</p>
+              </div>
+            </div>
+            <div id="coinGeckoPriceTable" class="table-host"></div>
+          </article>
+
+          <article class="card">
+            <div class="card-head">
+              <div>
+                <h3>Base completa de preços</h3>
+                <p class="subtle">Todos os preços guardados localmente. Tudo o que editares aqui entra nas exportações CSV/JSON e volta a ser importável em sessões futuras.</p>
+              </div>
+            </div>
+            <div id="pricesTable" class="table-host"></div>
+          </article>
+        </div>
+      </section>
+
+
+      <section id="guide" class="tab-panel">
+        <div class="grid cols-2">
+          <article class="card guide-card">
+            <div class="card-head">
+              <div>
+                <h3>Guia fiscal simples</h3>
+                <p class="subtle">Resumo prático e introdutório das regras mais relevantes para criptoativos em IRS, em linguagem simples.</p>
+              </div>
+            </div>
+            <div class="guide-stack">
+              <div class="guide-block">
+                <h4>1) Vendas por euros ou por bens/serviços</h4>
+                <p>Em regra, a alienação onerosa de criptoativos é o momento fiscalmente relevante. A aplicação trata estas saídas como potenciais linhas para IRS.</p>
+              </div>
+              <div class="guide-block">
+                <h4>2) Regra dos 365 dias</h4>
+                <p>Em termos gerais, operações com período de detenção inferior a 365 dias podem ser potencialmente tributáveis; operações com período igual ou superior a 365 dias podem ficar excluídas de tributação, mantendo-se a necessidade de análise e, quando aplicável, de declaração.</p>
+              </div>
+              <div class="guide-block">
+                <h4>3) FIFO por plataforma</h4>
+                <p>Quando existem vários lotes do mesmo ativo, a regra FIFO usa primeiro os lotes mais antigos. A app mostra essa repartição lote a lote.</p>
+              </div>
+              <div class="guide-block">
+                <h4>4) Swaps e rewards</h4>
+                <p>Trocas cripto→cripto e rewards/staking podem exigir reconstrução cuidada dos lotes. A app separa estes casos, sinaliza ambiguidades e permite revisão manual.</p>
+              </div>
+            </div>
+          </article>
+          <article class="card guide-card">
+            <div class="card-head">
+              <div>
+                <h3>Exemplos genéricos</h3>
+                <p class="subtle">Exemplos ilustrativos, sem qualquer relação com ficheiros pessoais.</p>
+              </div>
+            </div>
+            <div class="guide-stack">
+              <div class="guide-block">
+                <h4>Compra e venda parcial</h4>
+                <p>Se comprar o mesmo ativo em várias datas e vender apenas parte da posição, a app divide a venda pelos lotes mais antigos primeiro.</p>
+              </div>
+              <div class="guide-block">
+                <h4>Transferência entre plataformas</h4>
+                <p>Se existir saída de uma plataforma e depósito noutra com correspondência plausível, a app tenta assumir continuidade do lote. Se houver dúvidas, envia o caso para revisão.</p>
+              </div>
+              <div class="guide-block">
+                <h4>Reward ou staking reward</h4>
+                <p>Um reward recebido em cripto é tratado como novo lote com data própria. A app tenta preencher o valor de referência e assinala o que precisar de revisão manual.</p>
+              </div>
+            </div>
+          </article>
+        </div>
+
+        <article class="card guide-card">
+          <div class="card-head">
+            <div>
+              <h3>Fontes oficiais úteis</h3>
+              <p class="subtle">Ligações oficiais para consulta e validação. A app ajuda a organizar dados, mas deve sempre confirmar o enquadramento fiscal final.</p>
+            </div>
+          </div>
+          <div class="source-grid">
+            <a class="source-link" href="https://info.portaldasfinancas.gov.pt/pt/apoio_contribuinte/Folhetos_informativos/Documents/Criptoativos.pdf" target="_blank" rel="noopener noreferrer">
+              <strong>Folheto AT — Criptoativos</strong>
+              <span>Conceito fiscal e tributação</span>
+            </a>
+            <a class="source-link" href="https://info.portaldasfinancas.gov.pt/pt/informacao_fiscal/codigos_tributarios/cirs_rep/Pages/irs10.aspx" target="_blank" rel="noopener noreferrer">
+              <strong>CIRS — artigo 10.º</strong>
+              <span>Regras legais sobre mais-valias e criptoativos</span>
+            </a>
+            <a class="source-link" href="https://info.portaldasfinancas.gov.pt/pt/apoio_contribuinte/modelos_formularios/irs/Documents/Mod_3_anexo_J.pdf" target="_blank" rel="noopener noreferrer">
+              <strong>Modelo 3 — Anexo J</strong>
+              <span>Instruções oficiais do anexo para rendimentos obtidos no estrangeiro</span>
+            </a>
+          </div>
+        </article>
+
+        <article class="card guide-card">
+          <div class="card-head">
+            <div>
+              <h3>Limites da aplicação</h3>
+              <p class="subtle">O objetivo é ajudar a preparar trabalho fiscal de forma organizada, clara e auditável.</p>
+            </div>
+          </div>
+          <ul class="clean-list">
+            <li>A aplicação não substitui validação por contabilista, AT ou instruções oficiais.</li>
+            <li>Quando faltam preços, transferências ou provas documentais, a app assinala revisão manual.</li>
+            <li>As estimativas de imposto são indicativas e dependem do enquadramento final do caso concreto.</li>
+          </ul>
+        </article>
+      </section>
+
+      <section id="tax" class="tab-panel">
+        <div class="card">
+          <div class="card-head">
+            <div>
+              <h3>Leitura fiscal assistida</h3>
+              <p class="subtle">Cada linha inclui a plataforma associada, a origem do lote, a sugestão de anexo e uma lista de comprovativos recomendados para arquivo caso a AT os solicite.</p>
+            </div>
+          </div>
+        </div>
+        <div class="grid cols-2">
+          <article class="card">
+            <div class="card-head split">
+              <div>
+                <h3>Operações potencialmente tributáveis &lt; 365 dias</h3>
+                <p class="subtle">Vista sugerida para consulta e preparação fiscal.</p>
+              </div>
+              <button id="exportTaxableBtn" class="btn btn-secondary">Exportar CSV</button>
+            </div>
+            <div id="taxableTable" class="table-host"></div>
+          </article>
+          <article class="card">
+            <div class="card-head split">
+              <div>
+                <h3>Operações excluídas ≥ 365 dias</h3>
+                <p class="subtle">Vista informativa para operações fora do período potencialmente tributável.</p>
+              </div>
+              <button id="exportExemptBtn" class="btn btn-secondary">Exportar CSV</button>
+            </div>
+            <div id="exemptTable" class="table-host"></div>
+          </article>
+        </div>
+        <div class="card">
+          <div class="card-head"><h3>Estimativa de imposto</h3></div>
+          <div id="taxSummaryTable" class="table-host"></div>
+          <p class="subtle">A estimativa usa a taxa configurada e serve apenas como apoio de leitura. Deve confirmar o enquadramento fiscal final antes de submeter a declaração.</p>
+        </div>
+      </section>
+
+      <section id="about" class="tab-panel">
+        <div class="grid cols-2">
+          <article class="card about-card">
+            <div class="card-head">
+              <div>
+                <h3>Sobre a app</h3>
+                <p class="subtle">Ferramenta local-first para ajudar a organizar movimentos, reconstruir lotes e preparar trabalho de apoio ao IRS português sobre criptoativos.</p>
+              </div>
+            </div>
+            <div class="about-stack">
+              <div class="guide-block">
+                <h4>Privacidade e filosofia</h4>
+                <p>Esta aplicação foi pensada para funcionar diretamente no browser, sem backend obrigatório, para que o utilizador mantenha controlo sobre os seus próprios ficheiros e consiga trabalhar com mais clareza antes de preencher a declaração.</p>
+              </div>
+              <div class="guide-block">
+                <h4>Para que serve</h4>
+                <p>A app ajuda a importar ficheiros, normalizar histórico, reconstruir FIFO, detetar pontos ambíguos, rever preços e exportar vistas úteis para preparação fiscal. Não substitui validação profissional nem instruções oficiais da AT.</p>
+              </div>
+            </div>
+          </article>
+
+          <article class="card about-card">
+            <div class="card-head">
+              <div>
+                <h3>Breve nota sobre mim</h3>
+                <p class="subtle">Sou o Diogo Peralta Cordeiro. Em diogo.site partilho trabalho, projetos e percurso em software, engenharia e investigação.</p>
+              </div>
+            </div>
+            <div class="about-stack">
+              <div class="guide-block">
+                <h4>Site pessoal</h4>
+                <p>Se quiseres saber mais sobre mim, o tipo de projetos em que trabalho e outras iniciativas técnicas, podes visitar o meu site.</p>
+                <p><a class="inline-link" href="https://diogo.site" target="_blank" rel="noopener noreferrer">Abrir diogo.site</a> · <a class="inline-link" href="https://github.com/diogogithub/crypto-tax-pt" target="_blank" rel="noopener noreferrer">Ver código-fonte</a></p>
+              </div>
+              <div class="guide-block">
+                <h4>Guia IRS Portugal</h4>
+                <p>Mantenho também um guia prático na comunidade ndef.dev sobre IRS em Portugal, com explicações operacionais, mapa de anexos, casos frequentes e links úteis. Esta app complementa esse esforço: o guia ajuda a perceber as regras; a app ajuda a organizar os dados.</p>
+                <p><a class="inline-link" href="https://ndef.dev/doku.php?id=economics:irs_portugal" target="_blank" rel="noopener noreferrer">Abrir o guia IRS Portugal</a></p>
+              </div>
+            </div>
+          </article>
+        </div>
+
+        <article class="card danger-card">
+          <div class="card-head split stack-mobile">
+            <div>
+              <h3>Reset da sessão</h3>
+              <p class="subtle">Apaga os dados guardados localmente por esta app neste browser e volta ao estado inicial.</p>
+            </div>
+            <button id="resetAppBtnSecondary" class="btn btn-danger">Apagar storage e recomeçar</button>
+          </div>
+          <div class="callout callout-danger">
+            <strong>Atenção:</strong> esta ação remove a sessão guardada desta aplicação no browser, incluindo histórico importado, preços, revisões manuais, lotes e configurações guardadas localmente. Exporte primeiro a sessão, se quiser guardar uma cópia.
+          </div>
+        </article>
+      </section>
+
+      <section id="exports" class="tab-panel">
+        <div class="grid cols-2">
+          <article class="card">
+            <div class="card-head"><h3>Exportações úteis</h3></div>
+            <div class="action-grid">
+              <button id="exportHistoryBtn" class="btn btn-secondary">Exportar histórico CSV</button>
+              <button id="exportLotsBtn" class="btn btn-secondary">Exportar lotes CSV</button>
+              <button id="exportReviewsBtn" class="btn btn-secondary">Exportar revisões CSV</button>
+              <button id="exportWorkpackBtn" class="btn btn-primary">Exportar pacote de trabalho</button>
+            </div>
+          </article>
+          <article class="card">
+            <div class="card-head"><h3>O que o pacote guarda</h3></div>
+            <ul class="clean-list">
+              <li>Ficheiros reconhecidos e respetivo estado</li>
+              <li>Histórico normalizado</li>
+              <li>Lotes e linhas fiscais</li>
+              <li>Preços históricos</li>
+              <li>Overrides e decisões manuais</li>
+              <li>Auditoria das decisões automáticas</li>
+              <li>Configuração ativa da sessão</li>
+            </ul>
+          </article>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <div id="toastHost" class="toast-host" aria-live="polite" aria-atomic="true"></div>
+
+  <script type="module" src="./js/app.js"></script>
+</body>
+</html>
